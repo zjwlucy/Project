@@ -1,0 +1,148 @@
+---
+title: "Final Project"
+author: "Jingwen"
+date: "April 26, 2017"
+output: pdf_document
+---
+
+##This code is used to create csv files that I will use to generate my plots and tables
+##It take a really long time to run.
+
+
+"basicincident" file for Year 2006 to 2015
+```{r warning=FALSE,message=FALSE}
+library(dplyr)
+library(data.table)
+
+#Read the main table for 2012-2015
+year2012 <-read.table("2012/basicincident.txt",header=TRUE,sep = "^")
+year2013 <-read.table("2013/basicincident.txt",header=TRUE,sep = "^")
+year2014 <-read.table("2014/basicincident.txt",header=TRUE,sep = "^")
+year2015 <-read.table("2015/basicincident.txt",header=TRUE,sep = "^")
+
+```
+
+
+###########################################################################################################
+##Create the files for Code 2
+
+```{r warning=FALSE}
+#Select the variables that I need.
+y2012 <- select(year2012,STATE,FDID,INC_NO, INC_TYPE, PROP_USE, OTH_DEATH, FF_DEATH)
+y2013 <- select(year2013,STATE,FDID,INC_NO, INC_TYPE, PROP_USE, OTH_DEATH, FF_DEATH)
+y2014 <- select(year2014,STATE,FDID,INC_NO, INC_TYPE, PROP_USE, OTH_DEATH, FF_DEATH)
+y2015 <- select(year2015,STATE,FDID,INC_NO, INC_TYPE, PROP_USE, OTH_DEATH, FF_DEATH)
+
+```
+
+```{r}
+#Save the csv files, which I will use in Code 2.
+#write.csv(y2012, file="new data/y2012.csv", na="",row.names=FALSE)
+#write.csv(y2013, file="new data/y2013.csv", na="",row.names=FALSE)
+#write.csv(y2014, file="new data/y2014.csv", na="",row.names=FALSE)
+#write.csv(y2015, file="new data/y2015.csv", na="",row.names=FALSE)
+
+```
+
+###########################################################################################################
+##Preparation for plotting Maps.
+
+
+"incidentaddress" files for 2012-2015
+```{r}
+#Select the things I need from the main table
+my12 <- select(year2012,STATE,FDID,INC_DATE,INC_NO, EXP_NO, PROP_USE, OTH_DEATH, FF_DEATH)
+my13 <- select(year2013,STATE,FDID,INC_DATE,INC_NO, EXP_NO, PROP_USE, OTH_DEATH, FF_DEATH)
+my14 <- select(year2014,STATE,FDID,INC_DATE,INC_NO, EXP_NO, PROP_USE, OTH_DEATH, FF_DEATH)
+my15 <- select(year2015,STATE,FDID,INC_DATE,INC_NO, EXP_NO, PROP_USE, OTH_DEATH, FF_DEATH)
+  
+#Read the table for incident address for 2012-2015
+add12 <- read.table("2012/incidentaddress.txt",header=TRUE,sep = "^")
+add13 <- read.table("2013/incidentaddress.txt",header=TRUE,sep = "^",skipNul = TRUE)
+add14 <- read.table("2014/incidentaddress.txt",header=TRUE,sep = "^")
+add15 <- read.table("2015/incidentaddress.txt",header=TRUE,sep = "^")
+
+#Select the variables that I need from the address table
+add12 <- select(add12, STATE,FDID,INC_DATE,INC_NO, EXP_NO, STREETNAME, CITY, ZIP5)
+add13 <- select(add13, STATE,FDID,INC_DATE,INC_NO, EXP_NO, STREETNAME, CITY, ZIP5)
+add14 <- select(add14, STATE,FDID,INC_DATE,INC_NO, EXP_NO, STREETNAME, CITY, ZIP5)
+add15 <- select(add15, STATE,FDID,INC_DATE,INC_NO, EXP_NO, STREETNAME, CITY, ZIP5) 
+
+```
+
+
+
+##"causes" files for 2012-2015
+```{r}
+#Read the causes table for 2012-2015
+cause2012 <-read.table("2012/causes.txt",header=TRUE,sep = "^")
+cause2013 <-read.table("2013/causes.txt",header=TRUE,sep = "^")
+cause2014 <-read.table("2014/causes.txt",header=TRUE, sep="^", stringsAsFactors = TRUE)
+cause2015 <-read.table("2015/causes.txt",header=TRUE,sep = "^")
+
+
+#Select the variables I need from the causes table
+cause12 <- select(cause2012, STATE, FDID, INC_NO,CAUSE_CODE)
+cause13 <- select(cause2013, STATE, FDID, INC_NO,CAUSE_CODE)
+cause14 <- select(cause2014, STATE, FDID, INC_NO,CAUSE_CODE)
+cause15 <- select(cause2015, STATE, FDID, INC_NO,CAUSE_CODE)
+```
+
+
+```{r warning =FALSE,message=FALSE}
+#Join the causes table to the main table
+new12 <- full_join(my12, cause12,  by = c("STATE", "FDID", "INC_NO"))
+new13 <- full_join(my13, cause13,  by = c("STATE", "FDID", "INC_NO"))
+new14 <- full_join(my14, cause14,  by = c("STATE", "FDID", "INC_NO"))
+new15 <- left_join(my15, cause15,  by = c("STATE", "FDID", "INC_NO"))
+
+```
+
+
+```{r warning=FALSE,message=FALSE}
+library(sqldf)
+#Join the address table to the main table
+new2012 <- left_join(new12, add12, by = c("STATE", "FDID","INC_DATE", "INC_NO","EXP_NO"))
+new2013 <- left_join(new13, add13, by = c("STATE", "FDID","INC_DATE", "INC_NO","EXP_NO"))
+new2014 <- left_join(new14, add14, by = c("STATE", "FDID","INC_DATE", "INC_NO","EXP_NO"))
+new2015 <- full_join(new15, add15, by = c("STATE", "FDID","INC_DATE", "INC_NO","EXP_NO"))
+
+
+#Select the rows that only are related to residential fires with fatalities
+ad12 <- sqldf('SELECT * FROM new2012 
+                 WHERE PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH = 0 and FF_DEATH != 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH = 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH != 0')
+ad13 <- sqldf('SELECT * FROM new2013 
+                 WHERE PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH = 0 and FF_DEATH != 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH = 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH != 0')
+ad14 <- sqldf('SELECT * FROM new2014 
+                 WHERE PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH = 0 and FF_DEATH != 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH = 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH != 0')
+ad15 <- sqldf('SELECT * FROM new2015 
+                 WHERE PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH = 0 and FF_DEATH != 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH = 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH != 0')
+
+#Drop the property use column
+ad12 <- select(ad12, STATE, INC_NO, OTH_DEATH, FF_DEATH, CAUSE_CODE, STREETNAME, CITY,ZIP5)
+ad13 <- select(ad13, STATE, INC_NO, OTH_DEATH, FF_DEATH, CAUSE_CODE, STREETNAME, CITY,ZIP5)
+ad14 <- select(ad14, STATE, INC_NO, OTH_DEATH, FF_DEATH, CAUSE_CODE, STREETNAME, CITY,ZIP5)
+ad15 <- select(ad15, STATE, INC_NO, OTH_DEATH, FF_DEATH, CAUSE_CODE, STREETNAME, CITY,ZIP5)
+
+
+#Add the year as a new column
+address12 <- cbind(ad12, year = as.factor(rep(2012,1633)))
+address13 <- cbind(ad13, year = as.factor(rep(2013,1484)))
+address14 <- cbind(ad14, year = as.factor(rep(2014,1530)))
+address15 <- cbind(ad15, year = as.factor(rep(2015,1553)))
+
+#Combine 4 years data
+addresstable <- rbind(address12,address13,address14,address15)
+
+#Save the file for later use.
+#write.csv(addresstable, file="new data/addresstable.csv", na="",row.names=FALSE)
+```
+
