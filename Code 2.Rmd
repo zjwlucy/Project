@@ -1,0 +1,166 @@
+##This code is to generate the plots and the table 1.
+
+1.Read the files that I created from Code 1.R  
+```{r}
+#Read the 4 files
+y12 <- read.csv("new data/y2012.csv")
+y13 <- read.csv("new data/y2013.csv")
+y14 <- read.csv("new data/y2014.csv")
+y15 <- read.csv("new data/y2015.csv")
+```
+
+
+2.Make sure that the the count for death is not all 0 for each year.
+```{r}
+#check whether all the count for fire fighters' death are 0 for each year 
+sum(y12$FF_DEATH== 0)
+sum(y13$FF_DEATH == 0)
+sum(y14$FF_DEATH == 0)
+sum(y15$FF_DEATH == 0)
+
+#check whether all the count for other death are 0 for each year
+sum(y12$OTH_DEATH == 0)
+sum(y13$OTH_DEATH == 0)
+sum(y14$OTH_DEATH == 0)
+sum(y15$OTH_DEATH == 0)
+```
+
+
+3.
+Since I'm interested in residential fire, I use the sqldf package to select all the incidents that are residential. From the Guide for the data, I know that the residential fires can be identified by the "PROP_USE" column. The value of "PROP_USE" for residential fires are the 400 series, which means the value for "PROP_USE" is between 400-500. So I choose to use sqldf package.
+```{r warning=FALSE, message=FALSE}
+library(sqldf)
+#Identify the residential fires with fatalities.
+ry2012 <- sqldf('SELECT * FROM y12 
+                 WHERE PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH = 0 and FF_DEATH != 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH = 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH != 0')
+ry2013 <- sqldf('SELECT * FROM y13 
+                 WHERE PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH = 0 and FF_DEATH != 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH = 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH != 0')
+ry2014 <- sqldf('SELECT * FROM y14 
+                 WHERE PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH = 0 and FF_DEATH != 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH = 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH != 0')
+ry2015 <- sqldf('SELECT * FROM y15 
+                 WHERE PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH = 0 and FF_DEATH != 0
+                 or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH = 0                                   or PROP_USE < 500 and PROP_USE >=400 and OTH_DEATH != 0 and FF_DEATH != 0')
+
+
+```
+
+
+4. Generate the csv file that I will use in my shiny app.
+```{r message=FALSE, warning=FALSE}
+library(dplyr)
+#drop the column for property use
+ry2012 <- select(sqldf('select *, (OTH_DEATH+FF_DEATH) as total from ry2012'), -PROP_USE)
+ry2013 <- select(sqldf('select *, (OTH_DEATH+FF_DEATH) as total from ry2013'), -PROP_USE)
+ry2014 <- select(sqldf('select *, (OTH_DEATH+FF_DEATH) as total from ry2014'), -PROP_USE)
+ry2015 <- select(sqldf('select *, (OTH_DEATH+FF_DEATH) as total from ry2015'), -PROP_USE)
+
+#Add the year as the new column
+ry12 <- cbind(ry2012, year = as.factor(rep(2012,1278)))
+ry13 <- cbind(ry2013, year = as.factor(rep(2013,1248)))
+ry14 <- cbind(ry2014, year = as.factor(rep(2014,1321)))
+ry15 <- cbind(ry2015, year = as.factor(rep(2015,1407)))
+
+
+#Add a new column with all NA values.
+newr <- data.frame(rep(NA,5254))
+#Rename the column
+colnames(newr) <- c("region")
+
+#combine the 4 years' data that I will use to plot my data and plot in shiny app.
+casualtycounts <- rbind(ry12,ry13,ry14,ry15)
+casualtycounts <- cbind(casualtycounts, newr)
+
+      
+#I divide the 50 States into 4 part:   "west",  "midwest",   "northeast",  "south"
+#Replace the NA by "west" in the last col if the STATE name are: AZ CO ID NM MT UT NV  WY CA OR  WA  AK HI 
+casualtycounts[casualtycounts$STATE =="AZ" | casualtycounts$STATE =="CO"| 
+               casualtycounts$STATE =="ID" | casualtycounts$STATE =="NM" | casualtycounts$STATE =="MT" |
+               casualtycounts$STATE =="UT" | casualtycounts$STATE =="NV" | casualtycounts$STATE =="WY" |                  casualtycounts$STATE =="CA" | casualtycounts$STATE =="OR" |casualtycounts$STATE =="WA" |
+               casualtycounts$STATE =="AK" | casualtycounts$STATE =="HI",][,"region"] <- "west"
+
+#Replace the NA by "midwest" in the last col if the STATE name are: OH WI MI IL IA IN ND  SD KS NE MN  MO
+casualtycounts[casualtycounts$STATE == "OH"| casualtycounts$STATE == "WI"| casualtycounts$STATE == "MI"|                  casualtycounts$STATE == "IL"| casualtycounts$STATE == "IA"| casualtycounts$STATE == "IN"|                  casualtycounts$STATE == "ND"| casualtycounts$STATE == "SD"| casualtycounts$STATE == "KS"|                  casualtycounts$STATE == "NE"| casualtycounts$STATE == "MN"| casualtycounts$STATE == "MO",]                 [, "region"] <- "midwest"
+
+#Replace the NA by "northeast" in the last col if the state name are: NY  PA ME  VT NH  MA  CT  RI  NJ
+casualtycounts[casualtycounts$STATE == "NY"| casualtycounts$STATE =="PA"| casualtycounts$STATE =="ME"|
+               casualtycounts$STATE == "VT"| casualtycounts$STATE =="NH"| casualtycounts$STATE =="MA"|                    casualtycounts$STATE == "CT"| casualtycounts$STATE =="RI"| casualtycounts$STATE =="NJ", ]                  [, "region"] <- "northeast"
+
+#Replace the NA by "south" in the last col if the STATE name are OK AR LA TX AL KY MS TN DE DC FL GA MD WV VA NC SC
+casualtycounts[is.na(casualtycounts$region) == TRUE, ][,"region"] <- "south"
+
+
+#Save the data as CSV file, which I will use to plot my data in shiny.
+write.csv(casualtycounts, file="new data/final/casualtycounts.csv", na="",row.names=FALSE)
+
+```
+###########################################################################################################
+
+5. Generate the data that I will use to make my table in shiny.
+```{r}
+#Get the total number of death (include civilian death and firefirghter's death, and add the number as a column in the data)
+r12 <- ry12 %>% group_by(STATE) %>% summarise(OTH_DEATH = sum(OTH_DEATH), FF_DEATH = sum(FF_DEATH), total = sum(total), year = "2012")
+r13 <- ry13 %>% group_by(STATE) %>% summarise(OTH_DEATH = sum(OTH_DEATH), FF_DEATH = sum(FF_DEATH), total = sum(total), year = "2013")
+r14 <- ry14 %>% group_by(STATE) %>% summarise(OTH_DEATH = sum(OTH_DEATH), FF_DEATH = sum(FF_DEATH), total = sum(total), year = "2014")
+r15 <- ry15 %>% group_by(STATE) %>% summarise(OTH_DEATH = sum(OTH_DEATH), FF_DEATH = sum(FF_DEATH), total = sum(total), year = "2015")
+
+#combine the 4 years data
+casualtycount1 <- rbind(r12,r13,r14,r15)
+#write.csv(casualtycount1, file="new data/final/casualtycount1.csv", na="",row.names=FALSE)
+```
+
+
+6.Generate the table
+```{r message=FALSE, warning=FALSE}
+require(knitr)
+#Select the variables I need
+table<- select(casualtycount1, OTH_DEATH, FF_DEATH, total, year)
+#Group the data by years and get the sum of each columns. 
+table1 <- table %>% group_by(year) %>% summarise(Other = sum(OTH_DEATH), Firefighter = sum(FF_DEATH), Total = sum(total))
+kable((table1),  align = c(rep("c", 4)))
+
+
+```
+
+
+###########################################################################################################
+
+**Plot 1**
+```{r message=FALSE, warning=FALSE}
+library(ggplot2)
+library(plotly)
+casualtycounts <- read.csv("new data/final 1/casualtycounts.csv")
+
+#Plot the number of residential fires with fatalities only by year and state
+g1 <- ggplot(casualtycounts) + geom_bar(aes(STATE, total, fill= STATE), stat="identity")+
+      facet_wrap(~year)+ theme(plot.title = element_text(hjust = 0.5),  
+      axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+g1 <- ggplotly(g1)
+g1
+```
+
+
+
+**Plot 2**
+```{r warning=FALSE,message=FALSE}
+#Plot the number of residential fires with fatalities by year, region and state
+#Different color represent different region. The plot is divided into 4 part by years.
+g2 <- ggplot(casualtycounts) + geom_bar(aes(STATE, total, fill= region), stat="identity")+
+      facet_grid(year ~ .)+ theme(plot.title = element_text(hjust = 0.5),
+       axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))+
+       ggtitle("Number of Residential Fires with Fatalities")
+  
+
+g2 <- ggplotly(g2)
+g2
+```
+
+
+
+
